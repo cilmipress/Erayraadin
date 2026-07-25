@@ -1066,6 +1066,12 @@ built.forEach(({p,g,placed})=>{
 
   <!-- Row 1: Tools + action buttons -->
   <div style="display:flex;align-items:center;gap:5px;">
+    <button id="tb-drawmode" style="
+      height:30px;padding:0 10px;border-radius:15px;border:2px solid rgba(255,255,255,0.3);
+      background:rgba(255,255,255,0.1);color:#fff;font-size:10px;font-weight:900;
+      cursor:pointer;letter-spacing:1px;touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;flex-shrink:0;">DRAW</button>
+    <div style="width:1px;height:18px;background:rgba(255,255,255,0.15);flex-shrink:0"></div>
     <button class="tb on" id="tb-pen" title="Pen">&#9999;&#65039;</button>
     <button class="tb" id="tb-hl" title="Highlight">&#128396;&#65039;</button>
     <button class="tb" id="tb-circle" title="Circle">&#11093;</button>
@@ -1156,15 +1162,20 @@ var sx=0, sy=0;
 var rafId = null;
 var pendingPoint = null;
 
+/* ---- draw mode state ---- */
+var drawMode = false;
+
 /* ---- init ---- */
 function init(){
   document.querySelectorAll('.page').forEach(function(page, i){
     var cv = document.createElement('canvas');
+    /* Start invisible to touch — scrolling works normally until user taps draw button */
     cv.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;' +
-                       'z-index:50;touch-action:none;';
+                       'z-index:50;touch-action:auto;pointer-events:none;';
     page.style.position = 'relative';
     page.appendChild(cv);
 
+    cv.setAttribute('data-page', i);
     var pageIndex = i;
     function resize(){
       cv.width  = page.offsetWidth;
@@ -1178,38 +1189,42 @@ function init(){
 
     /* ----- touch events (iOS Safari) ----- */
     cv.addEventListener('touchstart', function(e){
+      if(!drawMode) return;
       e.preventDefault();
       var t = e.touches[0];
       onStart(getPos(t,cv), i);
     }, {passive:false});
 
     cv.addEventListener('touchmove', function(e){
+      if(!drawMode || !isDrawing || activePage!==i) return;
       e.preventDefault();
-      if(!isDrawing || activePage!==i) return;
       var t = e.touches[0];
       onMove(getPos(t,cv), i);
     }, {passive:false});
 
     cv.addEventListener('touchend', function(e){
+      if(!drawMode || !isDrawing || activePage!==i) return;
       e.preventDefault();
-      if(!isDrawing || activePage!==i) return;
       onEnd(i);
     }, {passive:false});
 
     /* ----- pointer events (desktop + Android) ----- */
     cv.addEventListener('pointerdown', function(e){
-      if(e.pointerType === 'touch') return; /* handled above */
+      if(!drawMode) return;
+      if(e.pointerType === 'touch') return;
       e.preventDefault();
       onStart(getPos(e,cv), i);
     }, {passive:false});
 
     cv.addEventListener('pointermove', function(e){
+      if(!drawMode) return;
       if(e.pointerType === 'touch') return;
       if(!isDrawing || activePage!==i) return;
       onMove(getPos(e,cv), i);
     }, {passive:false});
 
     cv.addEventListener('pointerup', function(e){
+      if(!drawMode) return;
       if(e.pointerType === 'touch') return;
       if(!isDrawing || activePage!==i) return;
       onEnd(i);
@@ -1494,6 +1509,36 @@ function setTool(id){
   });
 }
 
+/* ---- draw mode toggle ---- */
+function toggleDrawMode(on){
+  drawMode = (on !== undefined) ? on : !drawMode;
+  var allCanvases = document.querySelectorAll('canvas[data-page]');
+  allCanvases.forEach(function(cv){
+    if(drawMode){
+      cv.style.touchAction   = 'none';
+      cv.style.pointerEvents = 'all';
+    } else {
+      cv.style.touchAction   = 'auto';
+      cv.style.pointerEvents = 'none';
+      isDrawing = false;
+    }
+  });
+  /* Update draw mode button appearance */
+  var btn = document.getElementById('tb-drawmode');
+  if(btn){
+    if(drawMode){
+      btn.style.background = '#C2613A';
+      btn.style.border = '2px solid #fff';
+      btn.textContent = 'DRAW';
+    } else {
+      btn.style.background = 'rgba(255,255,255,0.1)';
+      btn.style.border = '2px solid rgba(255,255,255,0.3)';
+      btn.textContent = 'DRAW';
+    }
+  }
+}
+
+document.getElementById('tb-drawmode').onclick = function(){ toggleDrawMode(); };
 document.getElementById('tb-pen').onclick    = function(){ setTool('pen'); };
 document.getElementById('tb-hl').onclick     = function(){ setTool('highlight'); };
 document.getElementById('tb-circle').onclick = function(){ setTool('circle'); };
