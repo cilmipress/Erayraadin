@@ -1,2 +1,2 @@
-# Erayraadin
+# erayraadin
 Somali Wordsearch
